@@ -42,3 +42,5 @@ def predict_image(model, img):
     img = np.expand_dims(img, axis=0)
     predictions = probability_model.predict(img)
     return predictions
+
+train_and_save_model()
