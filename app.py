@@ -1,45 +1,54 @@
-from flask import Flask, render_template, request, redirect, url_for
 import numpy as np
-from PIL import Image
-import os
 import tensorflow as tf
-from fashion_mnist_model import load_model, class_names, predict_image
+from flask import Flask, request, render_template
+from PIL import Image
+import io
 
-# Inicjalizacja Flask
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'static/uploads/'
 
-# Wczytanie modelu
+def load_model():
+    try:
+        model = tf.keras.models.load_model('static/fashion_mnist_model.h5')
+        return model
+    except Exception as e:
+        print(f'Error loading model: {e}')
+        return None
+
 model = load_model()
 
-# Funkcja do przygotowania obrazu
-def prepare_image(image_path):
-    img = Image.open(image_path).convert('L')  # Konwertuj na skalę szarości
-    img = img.resize((28, 28))  # Zmień rozmiar na 28x28 pikseli
-    img = np.array(img) / 255.0  # Normalizacja
-    img = img.reshape(28, 28, 1)  # Przekształć na odpowiedni kształt dla modelu
-    return img
+def prepare_image(image):
+    try:
+        image = image.convert('L')  # Convert image to grayscale
+        image = image.resize((28, 28))  # Resize image to 28x28 pixels
+        image = np.array(image)  # Convert image to numpy array
+        image = image / 255.0  # Normalize image
+        image = image[np.newaxis, ..., np.newaxis]  # Add batch and channel dimensions
+        return image
+    except Exception as e:
+        print(f'Error preparing image: {e}')
+        return None
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        if 'file' not in request.files:
-            return redirect(request.url)
-        file = request.files['file']
-        if file.filename == '':
-            return redirect(request.url)
+        file = request.files.get('file')
         if file:
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-            file.save(file_path)
+            try:
+                img = Image.open(io.BytesIO(file.read()))
+                img = prepare_image(img)
+                if img is not None:
+                    predictions = model.predict(img)
+                    predicted_class = np.argmax(predictions[0])
+                    class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+                                  'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
+                    predicted_label = class_names[predicted_class]
+                    return render_template('index.html', prediction=predicted_label)
+                else:
+                    return render_template('index.html', prediction='Error processing image')
+            except Exception as e:
+                print(f'Error during prediction: {e}')
+                return render_template('index.html', prediction='Error during prediction')
+    return render_template('index.html')
 
-            # Przygotowanie obrazu i predykcja
-            img = prepare_image(file_path)
-            predictions = predict_image(model, img)
-            predicted_class = class_names[np.argmax(predictions)]
-
-            return render_template('index.html', image=file.filename, prediction=predicted_class)
-    
-    return render_template('index.html', image=None, prediction=None)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
