@@ -10,6 +10,4 @@ This project is a web application built with Flask that classifies clothing imag
 - `requirements.txt`: File listing the necessary dependencies.
 - `static/uploads/`: Directory for storing uploaded images.
 
-## Installation
-
 ### Demonstration application for IMAGE CLASSIDICATION
